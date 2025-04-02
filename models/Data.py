@@ -1,6 +1,6 @@
-from app.database import Column, Model, SurrogatePK, db
+from app.database import Column, SurrogatePK, db
 
-class Data(SurrogatePK, db.Model):
+class HisenseData(SurrogatePK, db.Model):
     __tablename__ = 'hisense_device_data'
     device_id = Column(db.Integer)
     title = Column(db.String(100))
