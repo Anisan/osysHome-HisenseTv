@@ -5,10 +5,11 @@ import json
 import paho.mqtt.client as mqtt
 from flask import redirect
 from sqlalchemy import delete
-from app.database import session_scope
+from app.database import session_scope, get_now_to_utc
 from app.core.main.BasePlugin import BasePlugin
 from app.core.lib.object import updateProperty, removeLinkFromObject
 from app.core.lib.common import addNotify, CategoryNotify
+from app.core.utilities.mqtt_errors import describe_mqtt_disconnect
 from plugins.HisenseTv.models.Device import HisenseDevice
 from plugins.HisenseTv.models.Data import HisenseData
 from plugins.HisenseTv.forms.DeviceForm import routeDevice
@@ -227,19 +228,12 @@ class HisenseTv(BasePlugin):
     def on_disconnect(self, client, userdata, rc):
         host = client.host
         self.updateData(host, {"state": 0})
-        addNotify("Disconnect MQTT", str(rc), CategoryNotify.Error, self.name)
+        msg = describe_mqtt_disconnect(rc)
         if rc == 0:
-            self.logger.info("Disconnected gracefully.")
-        elif rc == 1:
-            self.logger.info("Client requested disconnection.")
-        elif rc == 2:
-            self.logger.info("Broker disconnected the client unexpectedly.")
-        elif rc == 3:
-            self.logger.info("Client exceeded timeout for inactivity.")
-        elif rc == 4:
-            self.logger.info("Broker closed the connection.")
+            self.logger.info(msg)
         else:
-            self.logger.warning("Unexpected disconnection with code: %s", rc)
+            self.logger.warning(msg)
+            addNotify("Disconnect MQTT", msg, CategoryNotify.Error, self.name)
 
     def updateData(self, host, data):
         with session_scope() as session:
@@ -259,14 +253,14 @@ class HisenseTv(BasePlugin):
                                         value,
                                         self.name,
                                     )
-                        val.updated = datetime.datetime.now()
+                        val.updated = get_now_to_utc()
                         is_set = True
                 if not is_set:
                     data = HisenseData()
                     data.device_id = device.id
                     data.title = key
                     data.value = value
-                    data.updated = datetime.datetime.now()
+                    data.updated = get_now_to_utc()
                     session.add(data)
             session.commit()
 
